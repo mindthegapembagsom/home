@@ -1,80 +1,63 @@
-# Mind The Gap — MVP Lean integrato (edizione demo + OpenAI)
+# Mind The Gap — MVP, percorso buyer aggiornato (14 novembre 2026)
 
-Riscrittura funzionale del prototipo MTG per test EMBA. **Non è una piattaforma commerciale di produzione.**
+Questa è una **versione dimostrativa**, derivata dall'ultimo pacchetto `MTG_MVP_Verifiche_Complete_Deploy.zip`. È pensata per misurare comportamenti e intenzioni d'acquisto in un test MVP, non per erogare perizie, servizi professionali o pagamenti reali.
 
-## Avvio rapido (senza configurare nulla)
+## File da pubblicare
 
-1. Estrai lo ZIP.
-2. Pubblica il contenuto di `web/` in una repository GitHub Pages (oppure avvialo con `python -m http.server 8000` nella cartella `web`).
-3. Apri il sito, incolla una descrizione immobiliare, modifica le preferenze, prova il confronto, la chat dimostrativa e il percorso con esperti.
-4. Se OpenAI non è configurato, l'app presenta **esplicitamente un'analisi euristica di demo**, non una risposta del modello.
+- `web/` — frontend statico, da caricare **con il suo contenuto** nella root del repository GitHub Pages (index.html, app.js, style.css, config.js, assets/).
+- `supabase/functions/mtg-ai/index.ts` — funzione da ripubblicare se si desiderano risposte OpenAI reali, incluse osservazioni sulle risposte buyer e classificazione delle richieste libere agli esperti.
+- `knowledge_base/` — fonti, checklist e script opzionale di indicizzazione RAG. **Non contiene i PDF normativi ufficiali già indicizzati.**
+- Le vecchie schermate del pacchetto precedente sono state omesse intenzionalmente: non rappresentano la nuova UI.
 
-## Funzioni disponibili
+## Nuovo percorso
 
-- Homepage **description-first**, con PDF dell’annuncio al secondo posto e link al terzo (Beta). PDF testuali caricabili già alla creazione.
-- **Niente scraping non autorizzato**: dal solo URL non viene estratto l'annuncio. CORS, licenze e termini dei portali richiedono API o accordi. Puoi inserire il link e incollare la descrizione.
-- Multi-property, confronto 2–3 case, score Property Fit con priorità e valutazioni razionali/emotive personalizzate, Decision Readiness distinto.
-- Checklist 9 aree: prezzo, spazi, location, manutenzione, energia, urbanistica/catasto, condominio, rischi, condizioni d'acquisto.
-- Caricamento PDF **testuali** e TXT con estrazione PDF.js e storage del testo in IndexedDB; aggiornamento AI a ogni nuova evidenza mediante pulsante.
-- Chat contestuale: 3 risposte gratuite per browser e pack simulati 15/5€, 40/10€, 100/20€. Il pack 100/20€ è il listino di test rivisto, coerente con il prezzo decrescente per domanda; cambia `PACKS` se vuoi mantenere 100/30€.
-- Dossier completo a 49€: un clic registra intenzione e sblocca la demo, **senza pagamento reale**.
-- Sei esperti con **nomi, immagini generate e recensioni simulate**; specializzazioni dinamiche in base ai gap, selezione chat demo 49€, video 150€, visita 300€ e evento di intenzione d'acquisto. Non esistono appuntamenti/chat/video reali.
-- Dopo intenzione esperto: «Verifica report dell'esperto (simulazione)», creazione di un report illustrativo e nuova analisi. Il report non è una verifica legale/tecnica; non può aumentare il punteggio come evidenza professionale certificata.
-- Tracking degli eventi su questo browser, esportabile in JSON dal menu Come funziona. **Intenzione di pagamento != acquisto reale**.
+1. **Che cosa cerchi nella tua prossima casa?** Preferenze buyer comuni a tutte le case; aggiunta libera di criteri personali con importanza 0–5.
+2. **Aggiungi una casa** tramite descrizione, PDF testuale, oppure link (Beta, non importa automaticamente l'annuncio).
+3. **Prima analisi** dell'immobile, basata su regole dimostrative oppure OpenAI/Supabase.
+4. **Domande da chiarire**, generate a partire dai gap: il buyer risponde (anche "Non lo so"), richiede un'osservazione AI, allega documenti, lascia aperto o dichiara chiuso. Chiusura e attendibilità documentale restano indipendenti.
+5. **Prima valutazione gratuita**: sintesi delle questioni, indice di copertura informativa e valutazione personale. Il dettaglio dei gap e delle fonti non è esposto nell'interfaccia prima dello sblocco.
+6. **Dossier completo da 49 €**: disponibile per la simulazione dopo avere risposto a tutte le domande generate, **senza richiederne la chiusura**. Il clic registra un'intenzione di pagamento, non un incasso.
+7. **Professionisti simulati** suggeriti prima per le questioni ancora aperte. È possibile descrivere altre esigenze e cercare le competenze appropriate nel catalogo. Prima della richiesta si sceglie il perimetro di video-consulenza o sopralluogo; il prezzo base è un'ipotesi di test, gli approfondimenti aggiuntivi rimangono a preventivo non definito.
+8. **Report professionale esemplificativo** incluso nella prestazione simulata, consultabile anche senza acquistare il dossier digitale. Non è una verifica autentica.
+9. **Riepilogo e decisione**: possibilità di chiedere ancora all'AI, rivedere le domande, indicare intenzione di offerta, approfondimento o rinuncia; se rinuncia, è richiesta la motivazione.
+10. **Le mie case / Confronta**: il profilo personale è condiviso, ogni immobile mantiene risposte e dossier separati; confronto sintetico gratis, dettaglio premium soltanto per i dossier sbloccati. Pulsante **«+ Valuta un’altra casa»** sempre presente nell'intestazione della scheda.
 
-## Collegamento OpenAI (chiavi private sul backend)
+## Modifiche ai file
 
-1. Crea un progetto su https://platform.openai.com , configura la fatturazione API e conserva la tua chiave.
-2. In Supabase abilita Authentication → Email OTP/magic link e aggiungi il tuo indirizzo GitHub Pages nei Redirect URLs.
-3. Salva i secret di Edge Functions: `OPENAI_API_KEY` (obbligatoria), `OPENAI_MODEL` (facoltativo; default `gpt-4.1-mini`), `MTG_VECTOR_STORE_ID` (facoltativo), `MTG_ALLOWED_ORIGIN` (consigliato, esatto origin del tuo sito).
-4. Configura `web/config.js` con il Project URL e la **publishable / anon key pubblica di Supabase**, mai la OpenAI API key.
-5. Installa Supabase CLI e dal progetto: `supabase login`, `supabase link --project-ref TUO_REF`, `supabase functions deploy mtg-ai`.
-6. Accedi dal sito con email, carica una descrizione e premi «Aggiorna analisi AI».
+- `web/app.js`: navigazione, domande, risposte e stati, scope dei servizi esperti, matching, profilo e criteri personalizzati, gate del dossier, registrazione delle decisioni, confronto.
+- `web/style.css`: stile di percorso e domande, campi risposta, selezione del perimetro di consulenza.
+- `supabase/functions/mtg-ai/index.ts`: supporto alle operazioni `challenge` e `match_expert`, informazioni fornite dal buyer nella successiva analisi dell'immobile, istruzioni più attente ai controlli specifici.
 
-**Non inserire una chiave OpenAI nel browser, nemmeno per una demo privata online.** Le chiavi finirebbero nel repository JavaScript e potrebbero essere rubate o usate con addebiti sul tuo account.
+## Pubblicazione rapida
 
-## Knowledge Base dei documenti statici
+**Frontend:** carica il contenuto di `web/` nella root del repository GitHub Pages, mantenendo `assets/`. Se sostituisci una versione precedente del sito, salva prima una copia. Apri il sito e forza l'aggiornamento della cache.
 
-1. Da OpenAI Platform crea un vector store e carica checklist/procedure verificate e con fonti (ad es. urbanistica, documenti prima dell'offerta, principi di lettura APE, costi condominiali).
-2. Imposta il secret `MTG_VECTOR_STORE_ID=vs_...`.
-3. Il backend usa File Search per consultare fino a tre risultati quando pertinenti. Non inserire documenti privati del buyer in quel vector store condiviso.
-4. Fonti milanesi consigliate per un futuro layer GIS: Geoportale Lombardia, PGT Comune di Milano, PGRA alluvioni, CENED, eventuali mappature storiche delle coperture in cemento-amianto. **Non integrate in questa versione**: occorrono licenze, geocodifica affidabile e interrogazioni geospaziali. Le planimetrie delle singole unità non sono un dataset pubblico liberamente scaricabile.
+**Supabase/OpenAI (opzionale):** inserisci il Project URL e la chiave pubblica di Supabase in `web/config.js` (mai la OpenAI API key). In **Supabase → Edge Functions → Secrets** configura `OPENAI_API_KEY`, opzionalmente `OPENAI_MODEL` e `MTG_VECTOR_STORE_ID`. Dal terminale nella cartella principale:
 
-## Cosa è simulato e cosa è realmente funzionante
+```bash
+npx supabase login
+npx supabase link --project-ref IL_TUO_PROJECT_REF
+npx supabase functions deploy mtg-ai
+```
 
-| Funzione | Modalità locale | Con API OpenAI configurata |
-| --- | --- | --- |
-| Analisi annuncio | Euristica indicata come demo | Analisi LLM structured JSON |
-| Chat | Risposta demo dichiarata | Risposte AI contestuali |
-| Scoring preferenze | Calcolo client vero | Uguale, non arbitrariamente AI |
-| Decision Readiness | Stati euristici | Stati documentali restituiti da AI, aggregazione deterministica |
-| Report esperto | Illustrativo | Illustrativo, mai convalidato come tecnico |
-| Intenti di pagamento | Registrati in locale | Registrati in locale, nessuna transazione |
-| Documenti PDF | Estratti e conservati localmente in IndexedDB | Testo trasmesso all'API quando l'utente chiede analisi |
+La funzione verifica la sessione di Supabase Auth. La configurazione Email OTP, Origin e redirect devono essere coerenti con il dominio di GitHub Pages. Usa un budget API contenuto.
 
-## Limiti da correggere PRIMA di un test pubblico non presidiato
+## Cosa è realmente implementato / limiti
 
-- Identità utente e proprietà persistenti lato server con RLS; IndexedDB è locale, non sincronizzato. Per test con documenti veri sensibili: backend Storage privato, policy RLS, cancellazione e retention.
-- Chat credits e sblocco paywall ora sono **localStorage** e manipolabili: appropriati per demo di intenzione di pagamento, non per monetizzare un servizio. Per dati di conversione controllati, registrare intenti centralmente con consenso e identificativi test.
-- Un buyer può copiare/screenshotare qualsiasi dato mostrato. Limitare i dettagli della preview aiuta, ma non è protezione assoluta. L'endpoint AI non controlla un entitlement premium di backend: **non è un paywall sicuro**.
-- Autenticazione/costi AI: rate limiting per account, budget API, logging prudente, abuse prevention e retry non ancora presenti in produzione.
-- I PDF scansiti richiedono OCR o una pipeline vision. L'importazione dal solo URL non è disponibile senza accordi/API dei portali.
-- Recensioni e competenze fittizie sono etichettate vicino ai profili e prima di confermare qualsiasi interesse economico. Non presentarle come testimonianze autentiche.
-- Il rapporto con un professionista abilitato, gli oneri di privacy e le validazioni tecnico-legali devono essere implementati prima di offrire il servizio reale.
-- Prima di valutare la willingness to pay secondo Lean Startup, distingui **intenzione di click** da **pagamento realmente effettuato**.
+- **Funziona in modalità demo senza servizi esterni**: logica locale di gap, domande, chiusura, catalogo esperti simulati, richieste, report di esempio, confronto e acquisti simulati.
+- **OpenAI reale** richiede configurazione e deployment della funzione. Non abbiamo eseguito test end-to-end sul progetto Supabase dell'utente. La funzione non ha quote robuste: *non pubblicare la modalità AI senza rate limiting e limiti di spesa per utente*.
+- **Documenti**: si conserva il testo estratto da PDF testuali/TXT in IndexedDB sul dispositivo. Non è sincronizzato su Supabase e non è idoneo a gestire documenti personali sensibili di clienti reali.
+- **RAG**: preparazione disponibile, ma nessuna normativa ufficiale o dato territoriale di Milano è stato già caricato nell'account OpenAI. I dataset geografici (catasto puntuale, CENED, PGT geolocalizzato, amianto, frane) non sono interrogati automaticamente: senza dati verificati l'AI deve parlare di verifiche suggerite, non di rischi accertati.
+- **Link immobiliare Beta**: non effettua scraping automatico di Idealista/Immobiliare.it.
+- **Prezzi**: dossier 49 €; chat 5 €/15, 10 €/40, 20 €/100; consulenza e sopralluogo con prezzi *di test*, non preventivi di veri professionisti. Nessun pagamento vero o appuntamento.
+- **Profili/immagini/recensioni**: inventati, contrassegnati come simulati nel catalogo e prima di confermare qualsiasi richiesta.
+- **Chiusura manuale**: il buyer può dichiarare chiusa una questione, ma non si altera lo stato delle prove né si certifica la conformità. Le osservazioni AI non sostituiscono controlli tecnici.
+- **Preview e premium**: separati nel frontend dimostrativo; **non è un paywall antifrode** poiché lo sblocco è memorizzato localmente. Per un vero servizio a pagamento bisognerà gestire contenuti e diritti di accesso in backend.
+- **Confronto**: nessun costo aggiuntivo oltre ai singoli dossier, le valutazioni non sono comparabili se mancano dati essenziali.
 
-## File principali
+## Verifiche effettuate
 
-- `web/index.html`, `web/style.css`, `web/app.js`, `web/config.js`, `web/assets/expert-*.webp`
-- `supabase/functions/mtg-ai/index.ts` — unica funzione backend AI; controlla JWT, legge secret OpenAI, genera JSON strutturato.
-- `supabase/config.toml` — verifica JWT attiva.
-
-La versione è progettata per essere un esperimento concreto, senza falsificare acquisti o attestazioni tecniche.
-
-
-## Revisione Decision Journey + fonti Milano
-- La pagina immobile ora apre con un **percorso in 5 fasi**, progressivo ma non equiparabile a una certificazione di sicurezza; presenta una Next Best Action basata sui gap prioritari.
-- Il buyer può registrare **valuterei l’offerta / devo approfondire / preferisco rinunciare**. Il feedback è salvato nel browser e nel tracciamento eventi.
-- Homepage riordinata **descrizione → PDF → link (Beta)**. Da PDF la creazione estrae testo selezionabile; link import automatico NON implementato.
-- `knowledge_base/sources.json`: catalogo di fonti ufficiali Milano e limiti. `mtg_checklist_milano.md`: checklist seed pronta. `upload_kb.py`: attivazione reale File Search con chiave e vector store del tuo account.
-- **Non confondere i dataset territoriali con RAG:** PGT norme/guide nel RAG; CENED, PGRA e amianto richiedono query geografiche e validazione dell'indirizzo. Nessuna affermazione localizzata senza dati verificati.
+- `node --check web/app.js`: superato.
+- Parsing/traspilazione TypeScript Edge Function: nessun errore sintattico.
+- Smoke test delle principali funzioni di rendering, via Node: onboarding, intestazione, riepilogo, domande, dossier, esperti, decisione e confronto generano markup senza eccezioni.
+- **Non è stato possibile completare il collaudo in browser**: l'ambiente blocca l'apertura di pagine locali e il runner alternativo è andato in timeout. Verificare visivamente nel repository pubblicato prima di condividere il link con buyer esterni.

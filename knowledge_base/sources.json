@@ -1,0 +1,50 @@
+[
+  {
+    "id": "MIL_PGT",
+    "title": "Comune di Milano — Piano delle Regole, versione vigente",
+    "url": "https://pgt.comune.milano.it/pgt-previgente/pgt-milano-2030-approvato-e-successive-modificazioni/piano-delle-regole-milano-2030/piano-delle-regole-vigente",
+    "type": "norme e tavole",
+    "usage": "RAG per interpretazione norme; interrogazione GIS necessaria per applicazione al civico",
+    "status": "catalogato; PDF ufficiali da selezionare e indicizzare"
+  },
+  {
+    "id": "MIL_CENED",
+    "title": "Comune di Milano — CENED+2",
+    "url": "https://dati.comune.milano.it/dataset/bad3edcf-18ca-49af-9396-1422f70d3f68",
+    "type": "dataset energetico",
+    "usage": "query strutturata per indirizzo con matching e validazione; non certifica APE del singolo appartamento",
+    "status": "catalogato; connettore non presente"
+  },
+  {
+    "id": "LOM_PGRA",
+    "title": "Regione Lombardia — mappe PGRA vigenti",
+    "url": "https://www.geoportale.regione.lombardia.it/it/metadati?_detailSheetMetadata_WAR_gptmetadataportlet_identifier=r_lombar%3A9913a827-9889-4160-a50b-d483fdc5e719&_jsfBridgeRedirect=true&p_p_id=detailSheetMetadata_WAR_gptmetadataportlet&p_p_lifecycle=0&p_p_mode=view&p_p_state=normal",
+    "type": "layer cartografico",
+    "usage": "intersezione geometrica con coordinate verificate; non inferire dal testo",
+    "status": "catalogato; connettore GIS non presente"
+  },
+  {
+    "id": "LOM_PGRA_REV",
+    "title": "Regione Lombardia — revisione 2025 mappe PGRA (iter 2026)",
+    "url": "https://www.regione.lombardia.it/ambiente-e-territorio/pianificazione-territoriale/pianificazione-di-bacino/revisione-2025-mappe-piano-gestione-rischio-alluvioni-pgra",
+    "type": "aggiornamento amministrativo",
+    "usage": "distinguere varianti in corso da mappe vigenti",
+    "status": "catalogato"
+  },
+  {
+    "id": "IT_CATASTO",
+    "title": "Agenzia delle Entrate — I servizi (2025), consultazioni catastali",
+    "url": "https://www.fiscooggi.it/sites/default/files/file/2025/03/I_Servizi_Agenzia_delle_entrate_marzo%202025.pdf",
+    "type": "guida ufficiale PDF",
+    "usage": "RAG su disponibilità e limiti accesso: planimetrie riservate agli aventi diritto/delegati",
+    "status": "catalogato; PDF da indicizzare"
+  },
+  {
+    "id": "LOM_AMIANTO",
+    "title": "Geoportale Lombardia — mappature storiche delle coperture in cemento-amianto",
+    "url": "https://www.geoportale.regione.lombardia.it/",
+    "type": "mappatura storica",
+    "usage": "solo layer geografico con data/qualità nota, non affermare presenza o assenza a livello unità",
+    "status": "da selezionare il servizio e verificare copertura/licenza"
+  }
+]
