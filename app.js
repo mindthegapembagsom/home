@@ -303,7 +303,34 @@ function bind(){old_bind();if(view==='compare'){$$('[data-buy-compare]').forEach
 function currentCriteria(){return [...PREFS]}
 function ensureHomeFlow(h){h.questionStates ||= {};h.questionsVisited ||= false;h.shownQuestionKeys ||= [];h.decisionReason ||= '';h.specialRequest ||= '';h.visitStatus ||= 'not_visited';h.visitNotes ||= '';h.visitDate ||= '';h.phaseHistory ||= [];}
 function qKey(g){return g.check_id ? 'check:'+g.check_id : `${g.category||'other'}:${(g.title||'').toLowerCase().replace(/[^a-z0-9àèéìòù]+/g,'-').slice(0,85)}`}
-function questionList(h){ensureHomeFlow(h);const q=gapList(h).map((g,i)=>({...g,key:qKey(g),index:i,state:h.questionStates[qKey(g)]||{answer:'',closed:false},phase:g.phase||'any'}));const phaseScore=x=>x.phase==='after_visit'&&h.visitStatus!=='visited'?2:0;const severityScore=x=>({critical:0,high:1,medium:2,low:3})[x.severity]??3;return q.sort((a,b)=>phaseScore(a)-phaseScore(b)||severityScore(a)-severityScore(b)||a.index-b.index);}
+// Questions represent useful buyer actions, not each internal verification.
+function topicOf(q){
+ const t=String((q.title||'')+' '+(q.check_id||'')).toLowerCase();
+ const c=q.category||'other';
+ const rules={
+  legal:[['titolarita',/propriet[aà]|titolari|ipotec|gravam|pignor|pregiudiz|visur[ae] ipotec/],['occupazione',/liber[oa] al rogito|consegn|occupat|locat|inquilin/],['contratto',/preliminar|proposta|caparra|contratt/]],
+  price:[['costi',/cost[io]|spes[ae]|oner[ei]|impost|notaio|commission|accessor/],['prezzo',/prezzo|valore|richiest/]],
+  urban:[['planimetria',/planimetr|distribuzion|difformit[aà]/],['lavori',/titoli ediliz|modific|paret|ristruttur|urbanistic|conformit[aà]/],['visura',/visur|catast/]],
+  condo:[['spese',/spes[ae]|cost[io]/],['lavori',/straordinar|deliber|assemble|verbali/],['regolamento',/regolament/]],
+  energy:[['ape',/ape|classe energet|attestato/],['impianto',/riscaldament|consum/]],
+  space:[['misure',/superfic|metri quadr|misur/],['layout',/planimetr|locali|distribuzion/]],
+  condition:[['umidita',/umid|infiltr|muff/],['impianti',/impiant|elettric|idraulic/]],
+  location:[['collegamenti',/trasport|collegament|serviz/],['zona',/quartier|rumor|posizion/]],
+  risk:[['rischi',/alluvion|fran|amiant|rischio|vincol/]]
+ };
+ const hit=(rules[c]||[]).find(([,re])=>re.test(t));
+ return c+':'+(hit?hit[0]:String(q.check_id||q.title||'').toLowerCase().replace(/[^a-z0-9]+/g,'_').slice(0,35));
+}
+function questionList(h){
+ ensureHomeFlow(h);
+ const raw=gapList(h).map((g,i)=>({...g,key:qKey(g),index:i,state:h.questionStates[qKey(g)]||{answer:'',closed:false},phase:g.phase||'any'}));
+ const severityScore=x=>({critical:0,high:1,medium:2,low:3})[x.severity]??3;
+ raw.sort((a,b)=>severityScore(a)-severityScore(b)||a.index-b.index);
+ const seen=new Set(); const unique=[];
+ for(const q of raw){const topic=topicOf(q);if(seen.has(topic))continue;seen.add(topic);unique.push(q)}
+ return unique;
+}
+
 function visibleQuestions(h){return questionList(h).filter(x=>x.phase!=='after_visit'||h.visitStatus==='visited'||!!x.state.answer)}
 function reconcileQuestionStates(h,newAnalysis){
  ensureHomeFlow(h);
@@ -316,23 +343,31 @@ function reconcileQuestionStates(h,newAnalysis){
  }
 }
 // A question bank is NOT a mandatory questionnaire. The buyer sees a small adaptive batch.
-const FIRST_BATCH_SIZE=4, NEXT_BATCH_SIZE=3;
+const FIRST_BATCH_SIZE=3, NEXT_BATCH_SIZE=2;
 function questionPriority(q,h){
  const severity={critical:100,high:75,medium:45,low:15}[q.severity]||15;
  const answer=q.state?.answer?.trim()? -35:0;
+ const followUpBonus=q.parent_question?45:0;
  const stage=q.phase==='after_visit'&&h.visitStatus!=='visited'?-500:0;
- const relevance=(q.category==='urban'||q.category==='legal'?8:0);
+ const relevance=(q.category==='urban'?4:0);
  const buyerWeights=profileWeights();
  const preferenceMap={price:['price'],space:['space'],location:['position','commute'],condition:['condition'],energy:['condition'],condo:['price','condition'],risk:['condition'],urban:['space'],legal:['price']};
  const buyerPriority=Math.max(0,...(preferenceMap[q.category]||[]).map(x=>Number(buyerWeights[x]||0)))*2;
- return severity+answer+stage+relevance+buyerPriority;
+ return severity+answer+stage+relevance+buyerPriority+followUpBonus;
 }
 function questionPool(h){return visibleQuestions(h).sort((a,b)=>questionPriority(b,h)-questionPriority(a,h)||a.index-b.index)}
 function ensureAdaptiveBatch(h){
  ensureHomeFlow(h);
  if(!Array.isArray(h.shownQuestionKeys))h.shownQuestionKeys=[];
  const pool=questionPool(h);
- if(!h.shownQuestionKeys.length){h.shownQuestionKeys=pool.slice(0,FIRST_BATCH_SIZE).map(q=>q.key);}
+ const validKeys=new Set(pool.map(q=>q.key));
+ h.shownQuestionKeys=[...new Set(h.shownQuestionKeys)].filter(k=>validKeys.has(k));
+ if(!h.shownQuestionKeys.length){
+  const selected=[];const categories=new Set();
+  for(const q of pool){if(!categories.has(q.category)){selected.push(q);categories.add(q.category)}if(selected.length>=FIRST_BATCH_SIZE)break}
+  for(const q of pool){if(selected.length>=FIRST_BATCH_SIZE)break;if(!selected.includes(q))selected.push(q)}
+  h.shownQuestionKeys=selected.map(q=>q.key);
+ }
  // Retain historic questions/answers. When the user records a visit show the top new visit questions.
  const selected=new Set(h.shownQuestionKeys);
  if(h.visitStatus==='visited'&&!h.visitQuestionsActivated){
@@ -342,20 +377,20 @@ function ensureAdaptiveBatch(h){
  // Adaptive follow-up questions are added to the visible stream when created.
  return h.shownQuestionKeys;
 }
-function currentBatch(h){const keys=new Set(ensureAdaptiveBatch(h));return questionPool(h).filter(q=>keys.has(q.key))}
+function currentBatch(h){const keys=new Set(ensureAdaptiveBatch(h));const all=questionPool(h).filter(q=>keys.has(q.key));const unanswered=all.filter(q=>!q.state.answer?.trim());const answered=all.filter(q=>q.state.answer?.trim());return [...unanswered.slice(0,answered.length?2:3),...answered.slice(-1)].slice(0,3)}
 function remainingQuestions(h){const keys=new Set(ensureAdaptiveBatch(h));return questionPool(h).filter(q=>!keys.has(q.key))}
 function expandBatch(h){const extra=remainingQuestions(h).slice(0,NEXT_BATCH_SIZE);h.shownQuestionKeys.push(...extra.map(q=>q.key));persist();track('adaptive_questions_more',{propertyId:h.id,count:extra.length});render()}
 function hasBuyerInput(h){return questionList(h).some(q=>!!q.state.answer?.trim())}
 function markFollowUps(h,sourceKey,gaps){
  if(!Array.isArray(gaps)||!h.analysis)return 0;
- const existing=new Set(questionList(h).map(x=>x.key));let added=0;
+ const existing=new Set(questionList(h).map(x=>x.key));const existingTopics=new Set(questionList(h).map(topicOf));let added=0;
  for(const g of gaps.slice(0,2)){
   if(!g||!CATEGORIES.some(([id])=>id===g.category)||typeof g.title!=='string'||g.title.length<14||!g.title.includes('?'))continue;
   const check_id=String(g.check_id||'').replace(/[^a-z0-9_]/gi,'').slice(0,72);
   if(!check_id)continue;
   const item={category:g.category,check_id,phase:g.phase==='after_visit'?'after_visit':'any',title:g.title.slice(0,230),severity:['critical','high','medium','low'].includes(g.severity)?g.severity:'medium',reason:String(g.reason||'Approfondimento richiesto dalla risposta.').slice(0,500),action:String(g.action||'Richiedi il documento pertinente.').slice(0,500),source:String(g.source||'Risposta buyer').slice(0,160),status:'open',parent_question:sourceKey};
-  const key=qKey(item);if(existing.has(key))continue;
-  h.analysis.gaps.push(item);existing.add(key);h.shownQuestionKeys ||= [];
+  const key=qKey(item),topic=topicOf(item);if(existing.has(key)||existingTopics.has(topic))continue;
+  h.analysis.gaps.push(item);existing.add(key);existingTopics.add(topic);h.shownQuestionKeys ||= [];
   if(item.phase==='any'||h.visitStatus==='visited')h.shownQuestionKeys.push(key);
   added++;
  }
@@ -384,13 +419,14 @@ function overviewTab(h){if(!h.analysis)return old_overviewTab(h);const q=questio
 function questionsTab(h){ensureHomeFlow(h);if(!h.analysis)return `<section class="surface-card"><h2>Prima analizza l’immobile</h2><p>Inserisci la descrizione per generare domande specifiche.</p><button class="btn btn-primary" id="questionsAnalyze">Avvia analisi</button></section>`;
  h.questionsVisited=true;
  const shown=currentBatch(h),remaining=remainingQuestions(h),c=questionCounts(h),vis=h.visitStatus==='visited';
- const done=shown.filter(x=>x.state.answer?.trim()).length;
+ const done=questionList(h).filter(x=>x.state.answer?.trim()).length;
  const future=questionList(h).filter(q=>q.phase==='after_visit'&&!vis&&!q.state.answer).length;
- return `<div class="overview-stack"><div class="overview-intro"><div><h2>Le domande sulla tua casa</h2><p>Partiamo da pochi aspetti importanti. Le domande successive dipenderanno dalle tue risposte, dalla visita e dai documenti raccolti.</p></div><span class="subtle-pill">${done} risposte · ${shown.length} domande proposte</span></div>
+ return `<div class="overview-stack"><div class="overview-intro"><div><h2>Le domande sulla tua casa</h2><p>Partiamo da pochi aspetti importanti. MTG ti pone soltanto le domande più utili ora. Gli altri controlli sono conservati nel dossier.</p></div><span class="subtle-pill">${done} risposte · ${shown.length} domande proposte</span></div>
  <section class="surface-card"><h3>A che punto sei con questa casa?</h3><p class="muted small">Puoi iniziare dall'annuncio, anche se non hai visitato l'immobile.</p><div class="visit-options"><label><input type="radio" name="visitStatus" value="not_visited" ${!vis?'checked':''}> Non l'ho ancora visitata</label><label><input type="radio" name="visitStatus" value="visited" ${vis?'checked':''}> L'ho già visitata</label></div>${vis?`<div class="field mt2"><label class="label">Che cosa hai notato durante la visita? (facoltativo)</label><textarea id="visitNotes" rows="2" placeholder="Es. luminosità, rumori, umidità, spazi">${safe(h.visitNotes)}</textarea></div>`:''}<p class="tiny mt2">Documenti raccolti: ${h.docs.length}. La visita e i documenti sono indipendenti.</p><button class="btn btn-outline btn-small" data-jump="documents">Carica un nuovo documento</button></section>
- <section class="surface-card"><div class="section-line"><div><h3>Da dove iniziamo</h3><p class="small muted">Domande ordinate in base a conseguenze possibili, indizi dell'annuncio e tue priorità. Non sono tutte obbligatorie.</p></div><span class="state-pill">${shown.length} mostrate</span></div><p class="tiny">${remaining.length} ulteriori controlli disponibili${future?` · ${future} domande da affrontare dopo la visita`:''}. Puoi decidere quando approfondire.</p></section>
+ <section class="surface-card"><div class="section-line"><div><h3>Da dove iniziamo</h3><p class="small muted">Domande ordinate in base a conseguenze possibili, indizi dell'annuncio e tue priorità. Non sono tutte obbligatorie.</p></div><span class="state-pill">${shown.length} in evidenza</span></div><p class="tiny">${remaining.length} altre domande possibili${future?` · ${future} domande da affrontare dopo la visita`:''}. Puoi decidere quando approfondire.</p></section>
  ${shown.map((x,i)=>`<article class="surface-card question-item"><div class="section-line"><div><div class="eyebrow">${safe(CATEGORIES.find(z=>z[0]===x.category)?.[1]||'Verifica')} · ${i+1} di ${shown.length}</div><h3>${safe(x.title)}</h3></div>${badge(x.severity)}</div><p class="small muted">${safe(x.reason||'')}</p><label class="label" for="qa-${i}">La tua risposta</label><textarea id="qa-${i}" class="question-answer" data-q-answer="${safe(x.key)}" rows="2" placeholder="Rispondi con quello che sai. Puoi anche scrivere «Non lo so»." >${safe(x.state.answer)}</textarea><div class="flex wrap mt2"><button class="btn btn-outline btn-small" data-challenge="${safe(x.key)}">${x.state.challenge?'Aggiorna l’osservazione AI':'Analizza la mia risposta'}</button><button class="btn btn-ghost btn-small" data-unsure="${safe(x.key)}">Non lo so</button><button class="btn btn-outline btn-small" data-upload-for="${safe(x.key)}">Aggiungi documento</button><button class="btn btn-outline btn-small" data-expert-for="${safe(x.category)}">Chiedi a un professionista</button></div>${x.state.challenge?`<div class="notice mt2"><b>Osservazione MTG</b><p>${safe(x.state.challenge)}</p></div>`:''}<div class="question-status mt2"><label><input type="checkbox" data-close-question="${safe(x.key)}" ${x.state.closed?'checked':''}> Per me questa questione è chiusa</label><span class="tiny">${x.state.closed?'Chiusa da te · non necessariamente documentata':'Ancora aperta'}</span></div></article>`).join('')}
- <section class="surface-card"><h3>Decidi tu quando approfondire</h3><p class="muted">Puoi leggere le prossime domande, caricare altri documenti o passare alla prima valutazione senza aver risposto a tutte.</p><div class="flex wrap mt2">${remaining.length?`<button class="btn btn-outline" id="showMoreQuestions">Mostra altre ${Math.min(NEXT_BATCH_SIZE,remaining.length)} domande</button>`:''}<button class="btn btn-primary" data-jump="overview">Vai alla prima valutazione</button></div>${!hasBuyerInput(h)?'<p class="tiny mt2">Per simulare l’acquisto del dossier, fornisci almeno una risposta; puoi anche indicare «Non lo so».</p>':''}</section></div>`;
+ ${questionList(h).filter(q=>q.state.answer?.trim()&&!shown.some(x=>x.key===q.key)).length?`<details class="surface-card"><summary><b>Le risposte già date</b> · ${questionList(h).filter(q=>q.state.answer?.trim()&&!shown.some(x=>x.key===q.key)).length} precedenti</summary>${questionList(h).filter(q=>q.state.answer?.trim()&&!shown.some(x=>x.key===q.key)).map(x=>`<div class="file-row"><b>${safe(x.title)}</b><p class="small">${safe(x.state.answer)}</p><span class="tiny">${x.state.closed?'Chiusa da te':'Ancora aperta'}</span></div>`).join('')}</details>`:''}
+ <section class="surface-card"><h3>Decidi tu quando approfondire</h3><p class="muted">Puoi leggere le prossime domande, caricare altri documenti o passare alla prima valutazione senza aver risposto a tutte.</p><div class="flex wrap mt2">${remaining.length?`<button class="btn btn-outline" id="showMoreQuestions">Approfondisci con altre ${Math.min(NEXT_BATCH_SIZE,remaining.length)} domande</button>`:''}<button class="btn btn-primary" data-jump="overview">Vai alla prima valutazione</button></div>${!hasBuyerInput(h)?'<p class="tiny mt2">Per simulare l’acquisto del dossier, fornisci almeno una risposta; puoi anche indicare «Non lo so».</p>':''}</section></div>`;
 }
 function gapsTab(h){if(!h.analysis)return old_gapsTab(h);if(!h.unlocked){return `<div class="overview-stack"><div class="overview-intro"><div><h2>Verifiche e dossier</h2><p>Puoi consultare le aree principali. Il dettaglio delle verifiche è incluso nel dossier digitale.</p></div></div>${previewPanel(h)}<section class="surface-card"><h3>Le aree da controllare</h3><div class="check-mini-list">${CATEGORIES.map(([id,label])=>`<div class="check-mini-row"><span>${safe(label)}</span><span class="status-tag">${normalizedStatus(h.analysis.criteria?.[id]?.status).name}</span></div>`).join('')}</div></section><section class="surface-card"><h3>Il dossier completo</h3>${dossierOffer(h)}</section></div>`}return old_gapsTab(h)}
 function decisionTab(h){return `<div class="overview-stack"><div class="overview-intro"><div><h2>Come vuoi procedere con questa casa?</h2><p>La decisione resta tua. Anche se scegli di fare un'offerta, controlla le questioni non documentate.</p></div></div>${previewPanel(h)}<section class="surface-card"><form id="decisionForm"><div class="field"><label class="label">La tua scelta</label><label class="choice-row"><input type="radio" name="choice" value="proceed" ${h.decisionReview?.choice==='proceed'?'checked':''}> Intendo presentare un'offerta</label><label class="choice-row"><input type="radio" name="choice" value="investigate" ${!h.decisionReview||h.decisionReview.choice==='investigate'?'checked':''}> Voglio ancora approfondire</label><label class="choice-row"><input type="radio" name="choice" value="stop" ${h.decisionReview?.choice==='stop'?'checked':''}> Non voglio procedere</label></div><div class="field"><label class="label">Se scegli di non procedere, qual è il motivo principale?</label><select id="decisionReason" class="input"><option value="">Seleziona il motivo</option>${[['cost','Prezzo o costi'],['fit','Non risponde alle mie esigenze'],['technical','Problemi tecnici o documentali'],['location','Zona o posizione'],['alternative','Ho trovato un’altra casa'],['other','Altro motivo']].map(([k,l])=>`<option value="${k}" ${h.decisionReason===k?'selected':''}>${l}</option>`).join('')}</select></div><div class="field"><label class="label">Note facoltative</label><textarea id="decisionNote" rows="2" placeholder="Aggiungi un dettaglio, se vuoi">${safe(h.decisionNote||'')}</textarea></div><button class="btn btn-primary" type="submit">Salva la mia decisione</button></form></section><section class="surface-card"><h3>Vuoi vedere un'altra casa?</h3><p>Il tuo profilo resta salvato. Puoi valutare una nuova casa e confrontarla con questa.</p><button class="btn btn-outline" id="decisionAddHome">+ Aggiungi un’altra casa</button></section></div>`}
@@ -407,7 +443,7 @@ async function challengeBuyer(h,k){
  const item=questionList(h).find(x=>x.key===k);if(!item)return;
  const state=h.questionStates[k]||={};const answer=state.answer?.trim();
  if(!answer){toast('Scrivi prima la tua risposta oppure «Non lo so».');return}
- let challenge='[ESEMPIO] Questo elemento non risulta ancora documentato. Indica da chi proviene l’informazione e valuta se richiedere il documento relativo.';
+ let challenge='[ESEMPIO] Informazione ancora da confermare. Puoi chiedere il documento pertinente o lasciare aperta la questione.';
  let followUps=[];
  try{
   if(aiReady()&&authenticated()){
