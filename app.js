@@ -20,7 +20,7 @@ function log(type,properties={}){state.events.push({id:uid(),at:now(),type,...pr
 function persist(){localStorage.setItem(KEY,JSON.stringify(state));scheduleSync()}
 function scheduleSync(){if(!supa||!session||!cloudReady)return;clearTimeout(syncTimer);syncTimer=setTimeout(saveCloud,700)}
 async function saveCloud(){if(!supa||!session||!cloudReady)return;const {error}=await supa.from('mtg_workspaces').upsert({user_id:session.user.id,data:state,updated_at:now()},{onConflict:'user_id'});if(error){cloudError=error.message;updateSyncLabel()}else{cloudError='';updateSyncLabel()}}
-function updateSyncLabel(){const e=$('#syncLabel');if(e)e.textContent=!session?'Salvataggio locale nella sessione del browser · Accedi per sincronizzare i dati col tuo account':!cloudReady?'Salvataggio locale':cloudError?'Errore cloud: '+cloudError:'Sincronizzazione dati con account'}
+function updateSyncLabel(){const e=$('#syncLabel');if(e)e.textContent=!session?'Salvataggio locale nella sessione del browser · Accedi per sincronizzare i dati col tuo account':!cloudReady?'Salvataggio locale':cloudError?'Errore cloud: '+cloudError:''}
 function toast(message){const e=$('#toast');e.textContent=message;e.style.display='block';clearTimeout(toast.timer);toast.timer=setTimeout(()=>e.style.display='none',4200)}
 function modal(html){$('#modalBody').innerHTML=html;$('#modal').showModal();$$('[data-close]').forEach(b=>b.onclick=()=>$('#modal').close())}
 function render(){ $('#app').innerHTML=({research:researchPage,homes:homesPage,edit:createPage,property:propertyPage,compare:comparePage})[view]();$$('[data-nav]').forEach(x=>x.classList.toggle('active',x.dataset.nav===view));$('#accountBtn').textContent=session?'Il mio account':'Accedi';updateSyncLabel();bind() }
