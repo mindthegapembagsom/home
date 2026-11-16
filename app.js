@@ -20,7 +20,7 @@ function log(type,properties={}){state.events.push({id:uid(),at:now(),type,...pr
 function persist(){localStorage.setItem(KEY,JSON.stringify(state));scheduleSync()}
 function scheduleSync(){if(!supa||!session||!Ready)return;clearTimeout(syncTimer);syncTimer=setTimeout(save,700)}
 async function save(){if(!supa||!session||!Ready)return;const {error}=await supa.from('mtg_workspaces').upsert({user_id:session.user.id,data:state,updated_at:now()},{onConflict:'user_id'});if(error){Error=error.message;updateSyncLabel()}else{Error='';updateSyncLabel()}}
-function updateSyncLabel(){const e=$('#syncLabel');if(e)e.textContent=!session?'Salvataggio locale nella sessione del browser · Accedi per sincronizzare i dati col tuo account':!Ready?'Salvataggio locale':Error?'Errore : '+cloudError:''}
+function updateSyncLabel(){const e=$('#syncLabel');if(e)e.textContent=!session?'Salvataggio locale nella sessione del browser · Accedi per sincronizzare i dati col tuo account':!Ready?'Salvataggio locale':Error?'Errore : '+Error:''}
 function toast(message){const e=$('#toast');e.textContent=message;e.style.display='block';clearTimeout(toast.timer);toast.timer=setTimeout(()=>e.style.display='none',4200)}
 function modal(html){$('#modalBody').innerHTML=html;$('#modal').showModal();$$('[data-close]').forEach(b=>b.onclick=()=>$('#modal').close())}
 function render(){ $('#app').innerHTML=({research:researchPage,homes:homesPage,edit:createPage,property:propertyPage,compare:comparePage})[view]();$$('[data-nav]').forEach(x=>x.classList.toggle('active',x.dataset.nav===view));$('#accountBtn').textContent=session?'Il mio account':'Accedi';updateSyncLabel();bind() }
@@ -48,7 +48,7 @@ function detlsSection(h){return `<div class="grid2"><form class="card stack" id=
 function fit(h){const p=state.profile;const values=[];const add=(key,score)=>{const w=Number(p.prefs[key]||0);if(w&&score!=null)values.push([w,score])};if(h.price&&p.budget)add('prezzo',clamp(5-((h.price-p.budget)/Math.max(p.budget,1))*10,1,5));if(h.address&&p.location)add('zona',h.address.toLowerCase().includes(p.location.toLowerCase())?5:null);if(h.visited){add('luminosita',h.visit.light);add('tranquillita',h.visit.quiet);add('spazi',h.visit.layout)};for(const c of p.custom){const value=h.visit.custom?.[c.id];if(value!=null)values.push([Number(c.weight||3),Number(value)])};const sum=values.reduce((a,[w,v])=>a+w*v,0),weights=values.reduce((a,[w])=>a+w,0);const all=Object.values(p.prefs).reduce((a,v)=>a+Number(v),0)+p.custom.reduce((a,c)=>a+c.weight,0);return {score:weights?Math.round(sum/weights/5*100):null,coverage:all?Math.round(weights/all*100):0}}
 function areaName(id){return AREAS.find(a=>a[0]===id)?.[2]||'Altro'}
 function statusText(h){return h.analysis?.mode==='ai'?'Analisi Mind The Gap · '+shortDate(h.analysis?.generatedAt):'Analisi MTG non ancora eseguita. Nessun gap preimpostato: compila la casa e premi Analizza immobile' }
-function overviewSection(h){const f=fit(h);const total=h.gaps.length,open=h.gaps.filter(g=>!g.closed).length;return `<div class="grid3 mb"><div class="metric"><span>Quanto fa per te</span><b>${f.score==null?'—':f.score+'/100'}</b><span>Basato sul ${f.coverage}% del peso dei criteri; gli altri non sono valutati</span></div><div class="metric"><span>Questioni ancora aperte</span><b>${open}</b><span>${total-open} chiuse da te (non necessariamente verificate)</span></div><div class="metric"><span>Documenti acquisiti</span><b>${h.docs.length}</b><span>Il numero non misura conformità o certezza</span></div></div><div class="info mb"><b>Stato dell'analisi</b> · ${esc(statusText(h))}. </div><div class="grid2">${AREAS.map(([id,n,title,subtitle])=>{const evid=(h.analysis?.areas?.[id]?.evidences||[]);const count=h.gaps.filter(g=>g.area===id&&!g.closed).length;return `<div class="card area-card"><div class="area-head"><div><span class="eyebrow">${n} / ${esc(subtitle)}</span><h2>${esc(title)}</h2></div><span class="badge ${count?'medium':'ok'}">${count} aperte</span></div><div class="rule"></div><b class="smalltext">Evidenze disponibili</b>${evid.length?evid.slice(0,3).map(e=>`<div class="evidence"><div class="smalltext">${esc(e.fact)}</div><div class="tiny">${esc(e.source)} · ${esc(e.quality)}</div></div>`).join(''):'<p class="muted smalltext">Nessuna evidenza verificata. Puoi aggiungere informazioni e documenti.</p>'}<div class="rule"></div><div class="smalltext"><b>${count} verifiche da chiarire</b> · ${h.gaps.filter(g=>g.area===id&&!g.closed).sort((a,b)=>priorityWeight(b.priority)-priorityWeight(a.priority)).slice(0,3).map(g=>esc(g.title)).join(' · ')||'Nessuna aperta'}</div><button class="btn outline small mt" data-area="${id}">Apri le verifiche →</button></div>`}).join('')}</div><div class="btn-row mt"><button class="btn" id="openChecks">Approfondisci le verifiche</button><button class="btn outline" id="openVisit">${h.visited?'Modifica le sensazioni della visita':'Dopo la visita'}</button><button class="btn outline" id="refreshAnalysis">Aggiorna analisi MTG</button></div>`}
+function overviewSection(h){const f=fit(h);const total=h.gaps.length,open=h.gaps.filter(g=>!g.closed).length;return `<div class="grid3 mb"><div class="metric"><span>Quanto fa per te</span><b>${f.score==null?'—':f.score+'/100'}</b><span>Basato sul ${f.coverage}% del peso dei criteri; gli altri non sono valutati</span></div><div class="metric"><span>Questioni ancora aperte</span><b>${open}</b><span>${total-open} chiuse da te (non necessariamente verificate)</span></div><div class="metric"><span>Documenti acquisiti</span><b>${h.docs.length}</b><span>Il numero non misura conformità o certezza</span></div></div><div class="info mb"><b>Stato dell'analisi</b> · ${esc(statusText(h))}. </div>${mtgExternalPanel(h)}<div class="grid2">${AREAS.map(([id,n,title,subtitle])=>{const evid=(h.analysis?.areas?.[id]?.evidences||[]);const count=h.gaps.filter(g=>g.area===id&&!g.closed).length;return `<div class="card area-card"><div class="area-head"><div><span class="eyebrow">${n} / ${esc(subtitle)}</span><h2>${esc(title)}</h2></div><span class="badge ${count?'medium':'ok'}">${count} aperte</span></div><div class="rule"></div><b class="smalltext">Evidenze disponibili</b>${evid.length?evid.slice(0,3).map(e=>`<div class="evidence"><div class="smalltext">${esc(e.fact)}</div><div class="tiny">${esc(e.source)} · ${esc(e.quality)}</div></div>`).join(''):'<p class="muted smalltext">Nessuna evidenza verificata. Puoi aggiungere informazioni e documenti.</p>'}<div class="rule"></div><div class="smalltext"><b>${count} verifiche da chiarire</b> · ${h.gaps.filter(g=>g.area===id&&!g.closed).sort((a,b)=>priorityWeight(b.priority)-priorityWeight(a.priority)).slice(0,3).map(g=>esc(g.title)).join(' · ')||'Nessuna aperta'}</div><button class="btn outline small mt" data-area="${id}">Apri le verifiche →</button></div>`}).join('')}</div><div class="btn-row mt"><button class="btn" id="openChecks">Approfondisci le verifiche</button><button class="btn outline" id="openVisit">${h.visited?'Modifica le sensazioni della visita':'Dopo la visita'}</button><button class="btn outline" id="refreshAnalysis">Aggiorna analisi MTG</button></div>`}
 function visitSection(h){const v=h.visit;return `<div class="grid2"><form class="card stack" id="visitForm"><div class="eyebrow">LA TUA ESPERIENZA</div><h2>Come ti sei sentito dentro questa casa?</h2><p class="muted smalltext">Queste valutazioni sono personali e specifiche di questo immobile. Non sono prove tecniche né caratteristiche deducibili dall'annuncio.</p><label class="check-row"><input id="visitDone" type="checkbox" ${h.visited?'checked':''}> Ho visitato la casa</label>${h.visited?`<div class="field"><label>Quando? (facoltativo)</label><input id="visitDate" class="input" type="date" value="${esc(h.visitedAt||'')}"></div>${[['feeling','Come ti sei sentito complessivamente?'],['light','Luminosità percepita'],['quiet','Tranquillità percepita'],['layout','Spazi e distribuzione percepiti']].map(([id,label])=>`<div class="range-row"><label>${label}</label><input type="range" min="1" max="5" value="${v[id]??3}" data-emotion="${id}"><b data-emotion-label="${id}">${v[id]??'—'}/5</b></div>`).join('')}${state.profile.custom.map(c=>`<div class="range-row"><label>${esc(c.name)}</label><input type="range" min="1" max="5" data-emotion-custom="${esc(c.id)}" value="${v.custom?.[c.id]??3}"><b>${v.custom?.[c.id]??'—'}/5</b></div>`).join('')}<div class="field"><label>Cosa ti è piaciuto e cosa ti ha lasciato dubbi?</label><textarea class="input" id="visitNote" rows="5" placeholder="Es. Mi piace la zona giorno, ma il rumore dalle finestre mi preoccupa">${esc(v.note)}</textarea></div>`:`<div class="notice">Puoi continuare la valutazione anche senza visita. Quando la farai potrai aggiungere le tue sensazioni.</div>`}<button class="btn" type="submit">Salva la visita e le impressioni</button></form></div>`}
 function priorityLabel(p){return ({critical:'Critica',high:'Alta',medium:'Media',low:'Da approfondire'})[p]||'Da valutare'}
 function gapDocs(h,g){return (h.docs||[]).filter(d=>(g.documentIds||[]).includes(d.id))}
@@ -116,18 +116,71 @@ function bind(){
  $('#reportIntent')?.addEventListener('click',()=>{if(!h.reportUnlocked){h.reportUnlocked=true;state.intents.push({id:uid(),at:now(),type:'report',amount:15,homeId:h.id,realPayment:false});log('payment_intent',{product:'report_15',homeId:h.id,realPayment:false});persist();toast('Acquisto simulato · Nessun addebito');render()}else exportPrintReport(h)});
  $('#decisionForm')?.addEventListener('submit',e=>{e.preventDefault();const choice=$('#decisionChoice').value,reason=$('#decisionReason').value;if(choice==='no'&&!reason)return toast('Indica il motivo per cui non procedi');h.decision={choice,reason:choice==='no'?reason:'',note:$('#decisionNote').value.trim(),date:now()};if(choice==='offered')h.stage='offered';if(choice==='offer')h.stage='offer';if(choice==='no')h.stage='discarded';h.updatedAt=now();log('decision_saved',{homeId:h.id,choice,reason:h.decision.reason});persist();toast('Decisione salvata');render()});
 }
+/* MTG external location pilot: user-triggered geocoding and OpenStreetMap POIs.
+   Public Nominatim/Overpass services are for LOW-VOLUME MVP testing only.
+   Production requires a centrally throttled geocoding provider/backend. */
+const MTG_GEO_TTL_MS=30*86400000;
+function mtgGeoFresh(h){return h.externalGeo&&h.externalGeo.addressKey===String(h.address||'').trim().toLowerCase()&&Date.now()-Date.parse(h.externalGeo.checkedAt||0)<MTG_GEO_TTL_MS}
+async function mtgFetchJSON(url,options={},timeoutMs=13000){
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
+ try{const res=await fetch(url,{...options,signal:controller.signal});if(!res.ok)throw new globalThis.Error('HTTP '+res.status);return await res.json()}
+ finally{clearTimeout(timer)}
+}
+async function mtgExternalLocation(h){
+ const addr=String(h.address||'').trim();
+ if(!addr)return {addressKey:'',checkedAt:now(),status:'missing_address',items:[],message:'Indirizzo non inserito: analisi territoriale non disponibile.'};
+ if(mtgGeoFresh(h))return h.externalGeo;
+ const out={addressKey:addr.toLowerCase(),checkedAt:now(),status:'unavailable',items:[],message:'',position:null,osmStatus:'unavailable'};
+ const query=/\bitalia\b|\bitaly\b/i.test(addr)?addr:addr+', Italia';
+ try{
+   // Nominatim public API: one address lookup only when the buyer starts the analysis; cache for 30 days.
+   // No autocomplete, no loops, no retries. Requires a visible OSM attribution.
+   const url='https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=1&countrycodes=it&q='+encodeURIComponent(query);
+   const result=await mtgFetchJSON(url,{headers:{'Accept':'application/json'}},11000);
+   if(!Array.isArray(result)||!result.length){out.status='not_found';out.message='Indirizzo non localizzato: nessuna evidenza territoriale aggiunta.';return out}
+   const found=result[0],lat=Number(found.lat),lon=Number(found.lon);
+   if(!Number.isFinite(lat)||!Number.isFinite(lon)){out.status='not_found';return out}
+   const civic=Boolean(found.address?.house_number);
+   out.position={lat,lon,label:String(found.display_name||''),precision:civic?'civico':'zona',provider:'OpenStreetMap / Nominatim'};
+   out.status=civic?'located':'approximate';
+   out.items.push({area:'quartiere',fact:(civic?'Indirizzo geolocalizzato':'Zona localizzata in modo approssimativo')+': '+out.position.label,source:'OpenStreetMap / Nominatim · '+out.checkedAt.slice(0,10),quality:civic?'Localizzazione con civico; da verificare':'Localizzazione approssimativa: non adatta a verifiche puntuali'});
+   const radius=800;
+   const clauses=[['farmacia','node["amenity"="pharmacy"]'],['scuola','node["amenity"="school"]'],['supermercato','node["shop"="supermarket"]'],['fermata trasporto','node["highway"="bus_stop"]'],['parco','way["leisure"="park"]']];
+   const blocks=clauses.map((x,i)=>x[1]+'(around:'+radius+','+lat+','+lon+');').join('');
+   const q='[out:json][timeout:16];('+blocks+');out tags center;';
+   try{
+     const data=await mtgFetchJSON('https://overpass-api.de/api/interpreter',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},body:'data='+encodeURIComponent(q)},22000);
+     const els=Array.isArray(data?.elements)?data.elements:[];
+     const counts={farmacia:0,scuola:0,supermercato:0,'fermata trasporto':0,parco:0};
+     const seen=new Set();
+     for(const el of els){const key=String(el.type)+':'+el.id;if(seen.has(key))continue;seen.add(key);const t=el.tags||{};if(t.amenity==='pharmacy')counts.farmacia++;if(t.amenity==='school')counts.scuola++;if(t.shop==='supermarket')counts.supermercato++;if(t.highway==='bus_stop')counts['fermata trasporto']++;if(t.leisure==='park')counts.parco++}
+     out.osmStatus='available';out.counts=counts;
+     // Counts are OSM objects in a radius, NOT verified availability or walking distances.
+     out.items.push({area:'quartiere',fact:'Entro circa 800 m in linea d’aria (oggetti censiti OSM): '+Object.entries(counts).map(([k,v])=>k+' '+v).join('; ')+'. I dati potrebbero essere incompleti.',source:'OpenStreetMap / Overpass · '+out.checkedAt.slice(0,10),quality:'Punti censiti; non certifica completezza, aperture o tempi a piedi'});
+   }catch(e){out.osmStatus='unavailable';out.message='Servizi OpenStreetMap temporaneamente non disponibili ('+(e?.message||'errore')+').'}
+   return out;
+ }catch(e){out.message='Geocoding non disponibile ('+(e?.message||'errore')+'). Nessuna posizione inventata.';return out}
+}
+function mtgExternalPanel(h){
+ const x=h.externalGeo;
+ if(!x)return '<div class="card mb"><h3>Fonti territoriali</h3><p class="smalltext muted">Saranno consultate durante l’analisi dell’immobile.</p></div>';
+ const precision=x.position?.precision==='civico'?'indirizzo con civico':'zona approssimativa';
+ const facts=(x.items||[]).map(i=>`<div class="evidence"><div class="smalltext">${esc(i.fact)}</div><div class="tiny">${esc(i.source)} · ${esc(i.quality)}</div></div>`).join('');
+ return `<div class="card mb"><h3>Fonti territoriali</h3><p class="smalltext muted">${x.position?'Posizione: '+esc(precision)+' · '+esc(x.position.lat.toFixed(5))+', '+esc(x.position.lon.toFixed(5)):'Posizione non disponibile'} · Ultimo controllo: ${esc(shortDate(x.checkedAt))}</p>${facts||'<p class="smalltext muted">Nessun dato esterno recuperato.</p>'}${x.message?'<p class="tiny">'+esc(x.message)+'</p>':''}<p class="tiny">Dati © OpenStreetMap contributors (ODbL). OMI e ISPRA: verifiche automatiche non ancora attive; i dati non vanno presentati come acquisiti. <a href="https://www1.agenziaentrate.gov.it/servizi/geopoi_omi/index.htm" target="_blank" rel="noopener noreferrer">Consulta OMI</a> · <a href="https://idrogeo.isprambiente.it/" target="_blank" rel="noopener noreferrer">Consulta IdroGEO</a>.</p></div>`
+}
 function aiProfile(){const p=state.profile;return {budget:p.budget,location:p.location,purpose:p.purpose,weights:p.prefs,custom:p.custom}}
 function aiProperty(h){return {description:h.description,link:h.link,area:h.address,price:h.price,sqm:h.sqm,floor:h.floor,energy:h.energy,condition:h.condition,condoCosts:h.condoCosts}}
 async function ai(operation,params){if(!supa||!session){accountDialog();throw Error('Accedi per utilizzare l’analisi Mind The Gap')}const {data,error}=await supa.functions.invoke('mtg-ai',{body:{operation,...params}});if(error){let msg=error.message;try{const e=await error.context.json();msg=e.error||msg}catch{}throw Error(msg)}if(data?.error)throw Error(data.error);return data}
 async function runAnalysis(h,{advance=false}={}){
  if(busy)return false;
- if(!h.description.trim()&&!h.docs.length){toast('Aggiungi la descrizione dell’annuncio o almeno un documento per iniziare.');return false}
+ if(!h.description.trim()&&!h.docs.length&&!h.address.trim()){toast('Aggiungi almeno l’indirizzo, la descrizione o un documento per iniziare.');return false}
  if(!supa||!session){accountDialog();toast('Immobile salvato. Accedi e poi premi Analizza immobile.');return false}
  busy=true;const action=$('#analyzeProperty');if(action){action.disabled=true;action.textContent='Analisi in corso…'}
  toast('Analizzo l’immobile e preparo verifiche specifiche');
  try{
   cleanupLegacyGaps(h);
-  const data=await ai('workspace_analysis',{property:aiProperty(h),buyerProfile:aiProfile(),visitStatus:h.visited?'visited':'not_visited',visitNotes:h.visit,documents:h.docs.map(d=>({name:d.name,kind:d.kind,text:d.text})),existingGaps:h.gaps.map(g=>({id:g.id,title:g.title,area:g.area,closed:g.closed,answer:g.answer,source:g.source}))});
+  const geo=await mtgExternalLocation(h);h.externalGeo=geo;persist();if(!h.description.trim()&&!h.docs.length&&!geo.items.length){toast('Indirizzo non localizzato: aggiungi una descrizione o un documento prima di analizzare.');return false}
+  const data=await ai('workspace_analysis',{property:aiProperty(h),buyerProfile:aiProfile(),visitStatus:h.visited?'visited':'not_visited',visitNotes:h.visit,documents:[...h.docs.map(d=>({name:d.name,kind:d.kind,text:d.text})),...(geo.items?.length?[{name:'Dati pubblici territoriali (OpenStreetMap)',kind:'altro',text:geo.items.map(i=>i.fact+' | Fonte: '+i.source+' | Qualità: '+i.quality).join('\n')+(Number(h.price)>0&&Number(h.sqm)>0?'\nCalcolo MTG su dati dichiarati: '+Math.round(Number(h.price)/Number(h.sqm))+' €/m² (non è una quotazione OMI).':'')+'\nNota: non sono dati OMI né ISPRA, non sostituiscono verifiche tecniche.'}]:[])],existingGaps:h.gaps.map(g=>({id:g.id,title:g.title,area:g.area,closed:g.closed,answer:g.answer,source:g.source}))});
   if(!data?.analysis?.areas||!Array.isArray(data.analysis.gaps))throw Error('La funzione Mind The Gap non ha restituito le quattro sezioni previste');
   const generated=distinctGaps(data.analysis.gaps).slice(0,12);
   const preserved=h.gaps.filter(g=>!isLegacyPreset(g));
@@ -143,6 +196,8 @@ async function runAnalysis(h,{advance=false}={}){
   // Keep old gap records only when the buyer interacted with them; no stale AI suggestions.
   for(const old of preserved){if(merged.some(x=>sameGap(x,old)))continue;if(String(old.id).startsWith('buyer_')||old.closed||old.answer||(old.documentIds||[]).length||(old.manualEvidence||[]).length){merged.push({...old,history:[...(old.history||[]),{at:now(),event:'Conservata dallo storico della precedente analisi'}]})}}
   h.gaps=distinctGaps(merged);
+   // Show actual external source findings without letting the model fabricate their provenance.
+   for(const item of (geo.items||[])){const area=data.analysis.areas[item.area];if(area){area.evidences=Array.isArray(area.evidences)?area.evidences:[];if(!area.evidences.some(e=>e.fact===item.fact))area.evidences.unshift(item)}}
   h.analysis={...data.analysis,gaps:h.gaps.map(g=>({id:g.id,area:g.area,title:g.title,priority:g.priority,reason:g.reason,action:g.action,source:g.source,stage:g.stage})),mode:'ai',generatedAt:now()};
   h.updatedAt=now();log('analysis_completed',{homeId:h.id,gapCount:generated.length});persist();
   if(advance)section='overview';render();if(advance)scrollTo(0,0);
