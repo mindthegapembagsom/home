@@ -162,7 +162,12 @@ async function mtgExternalLocation(h){
  }catch(e){out.message='Geocoding non disponibile ('+(e?.message||'errore')+'). Nessuna posizione inventata.';return out}
 }
 function mtgExternalPanel(h){
- }
+ const x=h.externalGeo;
+ if(!x)return;
+ const precision=x.position?.precision==='civico'?'indirizzo con civico':'zona approssimativa';
+ const facts=(x.items||[]).map(i=>`<div class="evidence"><div class="smalltext">${esc(i.fact)}</div><div class="tiny">${esc(i.source)} · ${esc(i.quality)}</div></div>`).join('');
+ return;
+}
 function aiProfile(){const p=state.profile;return {budget:p.budget,location:p.location,purpose:p.purpose,weights:p.prefs,custom:p.custom}}
 function aiProperty(h){return {description:h.description,link:h.link,area:h.address,price:h.price,sqm:h.sqm,floor:h.floor,energy:h.energy,condition:h.condition,condoCosts:h.condoCosts}}
 async function ai(operation,params){if(!supa||!session){accountDialog();throw Error('Accedi per utilizzare l’analisi Mind The Gap')}const {data,error}=await supa.functions.invoke('mtg-ai',{body:{operation,...params}});if(error){let msg=error.message;try{const e=await error.context.json();msg=e.error||msg}catch{}throw Error(msg)}if(data?.error)throw Error(data.error);return data}
