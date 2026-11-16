@@ -1,4 +1,4 @@
-'use strict';
+F'use strict';
 /* MTG: decision workspace; private OpenAI key stays in Supabase Edge Function. */
 const CONFIG=window.MTG_CONFIG||{};
 const KEY='mtg-decision-workspace-v1';
@@ -162,12 +162,7 @@ async function mtgExternalLocation(h){
  }catch(e){out.message='Geocoding non disponibile ('+(e?.message||'errore')+'). Nessuna posizione inventata.';return out}
 }
 function mtgExternalPanel(h){
- const x=h.externalGeo;
- if(!x)return '<div class="card mb"><h3>Fonti territoriali</h3><p class="smalltext muted">Saranno consultate durante l’analisi dell’immobile.</p></div>';
- const precision=x.position?.precision==='civico'?'indirizzo con civico':'zona approssimativa';
- const facts=(x.items||[]).map(i=>`<div class="evidence"><div class="smalltext">${esc(i.fact)}</div><div class="tiny">${esc(i.source)} · ${esc(i.quality)}</div></div>`).join('');
- return `<div class="card mb"><h3>Fonti territoriali</h3><p class="smalltext muted">${x.position?'Posizione: '+esc(precision)+' · '+esc(x.position.lat.toFixed(5))+', '+esc(x.position.lon.toFixed(5)):'Posizione non disponibile'} · Ultimo controllo: ${esc(shortDate(x.checkedAt))}</p>${facts||'<p class="smalltext muted">Nessun dato esterno recuperato.</p>'}${x.message?'<p class="tiny">'+esc(x.message)+'</p>':''}<p class="tiny">Dati © OpenStreetMap contributors (ODbL). OMI e ISPRA: verifiche automatiche non ancora attive; i dati non vanno presentati come acquisiti. <a href="https://www1.agenziaentrate.gov.it/servizi/geopoi_omi/index.htm" target="_blank" rel="noopener noreferrer">Consulta OMI</a> · <a href="https://idrogeo.isprambiente.it/" target="_blank" rel="noopener noreferrer">Consulta IdroGEO</a>.</p></div>`
-}
+ }
 function aiProfile(){const p=state.profile;return {budget:p.budget,location:p.location,purpose:p.purpose,weights:p.prefs,custom:p.custom}}
 function aiProperty(h){return {description:h.description,link:h.link,area:h.address,price:h.price,sqm:h.sqm,floor:h.floor,energy:h.energy,condition:h.condition,condoCosts:h.condoCosts}}
 async function ai(operation,params){if(!supa||!session){accountDialog();throw Error('Accedi per utilizzare l’analisi Mind The Gap')}const {data,error}=await supa.functions.invoke('mtg-ai',{body:{operation,...params}});if(error){let msg=error.message;try{const e=await error.context.json();msg=e.error||msg}catch{}throw Error(msg)}if(data?.error)throw Error(data.error);return data}
